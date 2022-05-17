@@ -61,7 +61,7 @@ const emailSenderOptions = {
 function sendAppointmentEmail(booking) {
     const {patient, patientName, treatment, date, slot} = booking;
 
-    var email = {
+    const email = {
         from: process.env.EMAIL_SENDER,
         to: patient,
         subject: `Your Appointment  ${patientName}  on ${date} at ${slot} is confirm`,
