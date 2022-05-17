@@ -53,14 +53,34 @@ async function run() {
 
         const serviceCollection = client.db('doctors_portal').collection('services');
         const bookingCollection = client.db('doctors_portal').collection('bookings');
-
         // for store user
         const userCollection = client.db('doctors_portal').collection('users');
+        // for store doctor
+        const doctorCollection = client.db('doctors_portal').collection('doctors');
 
+
+        // to verify admin
+
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+
+            if (requesterAccount.role === 'admin') {
+                next()
+            }
+            else {
+                res.status(403).send({ message: 'forbidden' });
+            }
+        }
+
+
+
+        // to get all services/ but here using project thats why you will get only 
+        // service name and _id
 
         app.get('/service', async (req, res) => {
             const query = {};
-            const cursor = serviceCollection.find(query);
+            const cursor = serviceCollection.find(query).project({ name: 1 });
             const services = await cursor.toArray();
 
             res.send(services)
@@ -74,36 +94,28 @@ async function run() {
 
 
         // to check , is user already admin or not
-        app.get('/admin/:email', async(req, res) => {
+        app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
-            const user = await userCollection.findOne({email: email})
+            const user = await userCollection.findOne({ email: email })
             const isAdmin = user.role === "admin";
-            res.send({admin: isAdmin})
+            res.send({ admin: isAdmin })
         })
 
 
         // to make a user/ give a user admin roll
 
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({ email: requester });
 
-            if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updateDoc = {
-                    $set: { role: 'admin' },
-                };
+            const filter = { email: email };
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
 
-                const result = await userCollection.updateOne(filter, updateDoc);
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
 
-                res.send(result);
-            }
-            else {
-                res.status(403).send({message: 'forbidden'})
-            }
-
-        })
+        });
 
 
 
@@ -226,6 +238,34 @@ async function run() {
             // res.send(result)
             return res.send({ success: true, result })
         })
+
+
+
+
+        // to post doctors data on the database
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const getDoctor = req.body;
+            const result = await doctorCollection.insertOne(getDoctor);
+            res.send(result);
+        })
+
+        // to delete a doctor 
+        app.delete('/doctor/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = {email: email}
+            const result = await doctorCollection.deleteOne(filter);
+            res.send(result);
+        })
+
+        
+        
+        // to show doctors data on dashboard
+
+        app.get('/doctor', verifyJWT, verifyAdmin, async(req, res) => {
+            const doctors = await doctorCollection.find().toArray();
+            res.send(doctors);
+        })
+
 
 
 
