@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+var nodemailer = require('nodemailer');
+var sgTransport = require('nodemailer-sendgrid-transport');
 require('dotenv').config()
 const cors = require('cors');
 const port = process.env.PORT || 5000;
@@ -40,6 +42,51 @@ function verifyJWT(req, res, next) {
         req.decoded = decoded;
         next();
     });
+}
+
+
+
+
+// making sendgrid function to email user onclick appoinment
+
+const emailSenderOptions = {
+    auth: {
+      api_key: process.env.EMAIL_SENDER_KEY
+    }
+  }
+
+  const emailClient = nodemailer.createTransport(sgTransport(emailSenderOptions));
+
+
+function sendAppointmentEmail(booking) {
+    const {patient, patientName, treatment, date, slot} = booking;
+
+    var email = {
+        from: process.env.EMAIL_SENDER,
+        to: patient,
+        subject: `Your Appointment  ${patientName}  on ${date} at ${slot} is confirm`,
+        text: `Your Appointment  ${patientName}  on ${date} at ${slot} is confirm`,
+        html: `
+        <div>
+            <p>Hello ${patientName}</p>
+            <h2>Your Appointment for ${treatment} in confirmed</h2>
+            <h2>looking forward to seeing you on ${date} at ${slot}</h2>
+            <h3>Our Address</h3>
+            <p>Dhaka Bangladesh</p>
+            <a href="https://www.programming-hero.com/">Unsubscribe</a>
+        </div>
+        `
+      };
+
+      emailClient.sendMail(email, function(err, info){
+        if (err ){
+          console.log(err);
+        }
+        else {
+          console.log('Message sent: ' , info);
+        }
+    });
+
 }
 
 
@@ -235,6 +282,11 @@ async function run() {
             // -------------------------------------------
 
             const result = await bookingCollection.insertOne(booking);
+
+
+            console.log('sending email')
+            sendAppointmentEmail(booking)
+
             // res.send(result)
             return res.send({ success: true, result })
         })
@@ -252,16 +304,16 @@ async function run() {
         // to delete a doctor 
         app.delete('/doctor/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const filter = {email: email}
+            const filter = { email: email }
             const result = await doctorCollection.deleteOne(filter);
             res.send(result);
         })
 
-        
-        
+
+
         // to show doctors data on dashboard
 
-        app.get('/doctor', verifyJWT, verifyAdmin, async(req, res) => {
+        app.get('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
             const doctors = await doctorCollection.find().toArray();
             res.send(doctors);
         })
