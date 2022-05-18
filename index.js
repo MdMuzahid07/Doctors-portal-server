@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 var nodemailer = require('nodemailer');
 var sgTransport = require('nodemailer-sendgrid-transport');
 require('dotenv').config()
@@ -61,7 +61,7 @@ const emailSenderOptions = {
 function sendAppointmentEmail(booking) {
     const {patient, patientName, treatment, date, slot} = booking;
 
-    const email = {
+    const  email = {
         from: process.env.EMAIL_SENDER,
         to: patient,
         subject: `Your Appointment  ${patientName}  on ${date} at ${slot} is confirm`,
@@ -266,6 +266,16 @@ async function run() {
             else {
                 return res.status(403).send({ message: 'forbidden access' });
             }
+        })
+
+
+        // for loading data by payment appointment id
+
+        app.get('/booking/:id',verifyJWT, async(req, res) => {
+            const id = req.params.id;
+            const query = {_id: ObjectId(id)};
+            const booking = await bookingCollection.findOne(query);
+            res.send(booking);
         })
 
 
