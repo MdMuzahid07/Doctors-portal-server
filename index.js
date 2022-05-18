@@ -6,6 +6,7 @@ var nodemailer = require('nodemailer');
 var sgTransport = require('nodemailer-sendgrid-transport');
 require('dotenv').config()
 const cors = require('cors');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 
@@ -327,6 +328,26 @@ async function run() {
             const doctors = await doctorCollection.find().toArray();
             res.send(doctors);
         })
+
+
+        // payment intent api
+        app.post('/create-payment-intent',verifyJWT, async(req, res) => {
+            const service = req.body;
+            const price = service.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount : amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+
+        })
+
+
 
 
 

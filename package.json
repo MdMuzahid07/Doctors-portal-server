@@ -20,6 +20,7 @@
     "mongodb": "^4.5.0",
     "nodemailer": "^6.7.5",
     "nodemailer-sendgrid-transport": "^0.2.0",
-    "react-jwt": "^1.1.6"
+    "react-jwt": "^1.1.6",
+    "stripe": "^9.1.0"
   }
 }
