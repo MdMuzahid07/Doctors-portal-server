@@ -52,17 +52,17 @@ function verifyJWT(req, res, next) {
 
 const emailSenderOptions = {
     auth: {
-      api_key: process.env.EMAIL_SENDER_KEY
+        api_key: process.env.EMAIL_SENDER_KEY
     }
-  }
+}
 
-  const emailClient = nodemailer.createTransport(sgTransport(emailSenderOptions));
+const emailClient = nodemailer.createTransport(sgTransport(emailSenderOptions));
 
 
 function sendAppointmentEmail(booking) {
-    const {patient, patientName, treatment, date, slot} = booking;
+    const { patient, patientName, treatment, date, slot } = booking;
 
-    const  email = {
+    const email = {
         from: process.env.EMAIL_SENDER,
         to: patient,
         subject: `Your Appointment  ${patientName}  on ${date} at ${slot} is confirm`,
@@ -77,14 +77,48 @@ function sendAppointmentEmail(booking) {
             <a href="https://www.programming-hero.com/">Unsubscribe</a>
         </div>
         `
-      };
+    };
 
-      emailClient.sendMail(email, function(err, info){
-        if (err ){
-          console.log(err);
+    emailClient.sendMail(email, function (err, info) {
+        if (err) {
+            console.log(err);
         }
         else {
-          console.log('Message sent: ' , info);
+            console.log('Message sent: ', info);
+        }
+    });
+
+}
+
+// for payment success email
+
+function sendPaymentConfirmationEmail(booking) {
+    const { patient, patientName, treatment, date, slot } = booking;
+
+    const email = {
+        from: process.env.EMAIL_SENDER,
+        to: patient,
+        subject: `We haved recived your payment for ${patientName}  on ${date} at ${slot} is confirm`,
+        text: `Your payment for this appointment  ${patientName}  on ${date} at ${slot} is confirm`,
+        html: `
+        <div>
+            <p>Hello ${patientName}</p>
+            <h2>Thank you for your Your payment.</h2>
+            <h2>We have received your payment</h2>
+            <h2>looking forward to seeing you on ${date} at ${slot}</h2>
+            <h3>Our Address</h3>
+            <p>Dhaka Bangladesh</p>
+            <a href="https://www.programming-hero.com/">Unsubscribe</a>
+        </div>
+        `
+    };
+
+    emailClient.sendMail(email, function (err, info) {
+        if (err) {
+            console.log(err);
+        }
+        else {
+            console.log('Message sent: ', info);
         }
     });
 
@@ -105,6 +139,8 @@ async function run() {
         const userCollection = client.db('doctors_portal').collection('users');
         // for store doctor
         const doctorCollection = client.db('doctors_portal').collection('doctors');
+        // for store payment / transaction
+        const paymentCollection = client.db('doctors_portal').collection('payments');
 
 
         // to verify admin
@@ -272,9 +308,9 @@ async function run() {
 
         // for loading data by payment appointment id
 
-        app.get('/booking/:id',verifyJWT, async(req, res) => {
+        app.get('/booking/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
-            const query = {_id: ObjectId(id)};
+            const query = { _id: ObjectId(id) };
             const booking = await bookingCollection.findOne(query);
             res.send(booking);
         })
@@ -331,19 +367,36 @@ async function run() {
 
 
         // payment intent api
-        app.post('/create-payment-intent',verifyJWT, async(req, res) => {
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
             const service = req.body;
             const price = service.price;
             const amount = price * 100;
             const paymentIntent = await stripe.paymentIntents.create({
-                amount : amount,
+                amount: amount,
                 currency: 'usd',
                 payment_method_types: ['card']
             });
 
-            res.send({
-                clientSecret: paymentIntent.client_secret
-            })
+            res.send({ clientSecret: paymentIntent.client_secret })
+
+        });
+
+        //
+
+        app.patch('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+
+            const result = await paymentCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updateDoc);
+            res.send(updateDoc)
 
         })
 
